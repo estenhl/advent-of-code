@@ -1,4 +1,5 @@
 import argparse
+import numpy as np
 
 from functools import reduce
 
@@ -15,19 +16,14 @@ def solve(input: str):
     with open(input, 'r') as f:
         lines = [x.strip() for x in f.readlines()]
 
-    total = 0
+    scores = [score((set(line[len(line) // 2:]) & \
+                     set(line[:len(line) // 2])).pop()) \
+             for line in lines]
+    print(f'Sum: {np.sum(scores)}')
 
-    for line in lines:
-        first = set([x for x in line[:len(line) // 2]])
-        second = set([x for x in line[len(line) // 2:]])
-        common = first & second
-        total += score(common.pop())
-
-    print(f'Total: {total}')
-    items = [reduce(lambda x, y: set(x) & set(y), lines[i:i+3]) \
-             for i in range(0, len(lines), 3)]
-    total = sum([score(item.pop()) for item in items])
-    print(f'Total: {total}')
+    priorities = [reduce(lambda x, y: set(x) & set(y), lines[i:i+3]) \
+                  for i in range(0, len(lines), 3)]
+    print(f'Sum: {sum([score(item.pop()) for item in priorities])}')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Solves AOC 2022 day 3')

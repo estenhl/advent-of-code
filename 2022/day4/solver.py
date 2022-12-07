@@ -3,34 +3,24 @@ import numpy as np
 
 from functools import reduce
 
+def to_range(token: str):
+    start, end = token.split('-')
+    return set(np.arange(int(start), int(end) + 1))
 
 def solve(input: str):
     with open(input, 'r') as f:
         lines = [x.strip() for x in f.readlines() \
                  if len(x.strip()) > 0]
 
-    contains = 0
-    overlaps = 0
+    ranges = [[to_range(x) for x in line.split(',')] for line in lines]
+    contains = [r[0] & r[1] == r[0] or r[0] & r[1] == r[1] for r in ranges]
+    print(f'Contains: {np.sum(contains)}')
 
-    for line in lines:
-        pairs = line.split(',')
-        pairs = [[int(x) for x in p.split('-')] for p in pairs]
-
-        if pairs[0][0] <= pairs[1][0] and pairs[0][1] >= pairs[1][1] or \
-           pairs[0][0] >= pairs[1][0] and pairs[0][1] <= pairs[1][1]:
-            contains += 1
-
-        ranges = [set(np.arange(p[0], p[1] + 1)) for p in pairs]
-
-        if len(ranges[0] & ranges[1]) > 0:
-            overlaps += 1
-
-    print(f'Contains: {contains}')
-    print(f'Overlaps: {overlaps}')
-
+    overlaps = [len(r[0] & r[1]) > 0 for r in ranges]
+    print(f'Overlaps: {np.sum(overlaps)}')
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('Solves AOC 2022 day 3')
+    parser = argparse.ArgumentParser('Solves AOC 2022 day 4')
 
     parser.add_argument('-i', '--input', required=True,
                         help='Path to input file')
