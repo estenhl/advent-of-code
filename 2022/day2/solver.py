@@ -25,11 +25,9 @@ scores = {
     'C Z': 3 + 3
 }
 
-total = 0
+total = sum([scores[line] for line in lines])
+mapped = sum([scores[mapping[line]] for line in lines])
 
-for line in lines:
-    total += scores[mapping[line]]
-
-print(total)
-
+print(f'Score: {total}')
+print(f'Mapped score: {mapped}')
 
