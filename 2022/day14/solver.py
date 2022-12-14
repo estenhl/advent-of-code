@@ -24,18 +24,14 @@ def fall(position: Tuple[int], map: np.ndarray):
     y, x = position
 
     if y + 1 >= len(map):
-        print(f'y outside map')
         raise ValueError()
     if map[y + 1, x] == '.':
         return fall((y + 1, x), map)
     elif x < 0:
-        print(f'x < 0')
         raise ValueError()
     elif map[y + 1, x - 1] == '.':
         return fall((y + 1, x - 1), map)
     elif x + 1 >= len(map[0]):
-        print(position)
-        print('x > map')
         raise ValueError()
     elif map[y + 1, x + 1] == '.':
         return fall((y + 1, x + 1), map)
@@ -70,6 +66,9 @@ def solve(input: str):
 
     print(f'Units of sand: {len(np.where(map == "o")[0])}')
 
+    min_width = max_y + 2
+    min_x = min(min_x, 500 - min_width)
+    max_x = max(max_x, 500 + min_width)
     map = np.zeros((max_y + 3, (max_x - min_x) + 1), dtype=object)
     map[:,:] = '.'
     map[-1,:] = '#'
@@ -80,7 +79,6 @@ def solve(input: str):
 
     while True:
         if map[0, 500-min_x] == 'o':
-            print('Full')
             break
 
         try:
@@ -89,9 +87,7 @@ def solve(input: str):
             break
 
         map[position] = 'o'
-        #render(map)
 
-    #render(map)
     print(f'Units of sand: {len(np.where(map == "o")[0])}')
 
 if __name__ == '__main__':
