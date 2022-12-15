@@ -16,29 +16,93 @@ def parse(line: str):
 
     return sensor, beacon
 
-def render(map: np.ndarray):
-    for line in map:
-        print(''.join(line))
+def between(a, b, c):
+    crossproduct = (c[0] - a[0]) * (b[1] - a[1]) - (c[1] - a[1]) * (b[0] - a[0])
 
-def to_formula(p1, p2):
-    A = (p1[1] - p2[1])
-    B = (p2[0] - p1[0])
-    C = (p1[0]*p2[1] - p2[0]*p1[1])
-    return A, B, -C
+    if abs(crossproduct) > 0:
+        return False
 
-def intersect(l1, l2):
-    l1 = to_formula(*l1)
-    l2 = to_formula(*l2)
-    D  = l1[0] * l2[1] - l1[1] * l2[0]
-    Dx = l1[2] * l2[1] - l1[1] * l2[2]
-    Dy = l1[0] * l2[2] - l1[2] * l2[0]
+    dotproduct = (c[1] - a[1]) * (b[1] - a[1]) + (c[0] - a[0])*(b[0] - a[0])
+    if dotproduct < 0:
+        return False
 
-    if D != 0:
-        x = Dx / D
-        y = Dy / D
-        return round(x), round(y)
+    squaredlengthba = (b[1] - a[1])*(b[1] - a[1]) + (b[0] - a[0])*(b[0] - a[0])
+    if dotproduct > squaredlengthba:
+        return False
 
-    return False
+    return True
+
+def intersect(line1, line2):
+    xdiff = (line1[0][0] - line1[1][0], line2[0][0] - line2[1][0])
+    ydiff = (line1[0][1] - line1[1][1], line2[0][1] - line2[1][1])
+
+    def det(a, b):
+        return a[0] * b[1] - a[1] * b[0]
+
+    div = det(xdiff, ydiff)
+
+    if div == 0:
+       raise ValueError()
+
+    d = (det(*line1), det(*line2))
+    x = det(d, xdiff) / div
+    y = det(d, ydiff) / div
+
+    if not (between(line1[0], line1[1], (x, y)) and between(line2[0], line2[1], (x, y))):
+        raise ValueError()
+
+    return x, y
+
+def parallell(line1, line2):
+    slopes = [
+        (line1[1][0] - line1[0][0]) / (line1[1][1] - line1[0][1]),
+        (line2[1][0] - line2[0][0]) / (line2[1][1] - line2[0][1])
+    ]
+
+    return slopes[0] == slopes[1]
+
+def compare_edges(*edges, bounds, data):
+    if parallell(edges[0], edges[1]):
+        raise ValueError()
+
+    try:
+        intersection = intersect(edges[0], edges[1])
+
+        if not intersection[0] == int(intersection[0]):
+            raise ValueError()
+
+        intersection = tuple([int(x) for x in intersection])
+
+        for modification in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            candidate = np.asarray(intersection) + np.asarray(modification)
+
+            if np.amin(candidate) >= 0 and np.amax(candidate) < bounds:
+                inside = False
+
+                for sensor, beacon in data:
+                    radius = cityblock(sensor, beacon)
+
+                    if cityblock(sensor, candidate) <= radius:
+                        inside = True
+                        break
+
+                if not inside:
+                    return candidate[1] * 4000000 + candidate[0]
+
+    except ValueError:
+        pass
+
+def compare_edge_sets(*edges, bounds, data):
+    for i in range(4):
+        for j in range(4):
+            try:
+                frequency = compare_edges(edges[0][i], edges[1][j],
+                                          bounds=bounds, data=data)
+                return frequency
+            except Exception:
+                pass
+
+    return None
 
 def solve(input: str, row: int, bounds: int):
     with open(input, 'r') as f:
@@ -74,79 +138,17 @@ def solve(input: str, row: int, bounds: int):
     seen = seen - beacons
     print(f'Searched positions on row {row}: {len(seen)}')
 
-    intersections = set()
-
-    NUM_TESTS = 2
-
-    for i in tqdm(range(NUM_TESTS)):
-        for j in range(i, NUM_TESTS):
+    for i in tqdm(range(len(edges))):
+        for j in range(i, len(edges)):
             if i == j:
                 continue
 
-            for k in range(4):
-                for l in range(4):
-                    intersection = intersect(edges[i][k], edges[j][l])
+            frequency = compare_edge_sets(edges[i], edges[j], bounds=bounds,
+                                          data=data)
 
-                    if intersection:
-                        intersections.add(intersection)
+            if frequency is not None:
+                print(f'Tuning frequency: {frequency}')
 
-    import matplotlib.pyplot as plt
-    from skimage.draw import line_aa
-
-    canvas = np.zeros((50, 50, 3))
-
-    print(edges)
-
-    for i in range(1, NUM_TESTS):
-        for j in range(4):
-            start, end = edges[i][j]
-            print(start)
-            print(end)
-            ysign = np.sign(end[0] - start[0])
-            xsign = np.sign(end[1] - start[1])
-            for z in range(np.abs(end[0] - start[0])):
-                print(z)
-                canvas[start[0] + ysign * z, start[1] + xsign * z] = (1, 1, 1)
-            #ysign = np.sign(end[0] - start[0])
-            #xsign = np.sign()
-
-    for i in intersections:
-        print(i)
-        canvas[i] = (1, 0, 0)
-
-    plt.imshow(canvas)
-    plt.show()
-    raise ValueError()
-    #(2906626, 2572895)
-    #print(intersections)
-
-    print(sorted(intersections))
-
-    #for p in intersections:
-    #    print(p[1] * 4000000 + p[1])
-    candidates = set()
-
-    for intersection in tqdm(intersections):
-        for modification in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-            candidate = np.asarray(intersection) + np.asarray(modification)
-
-            if np.amin(candidate) >= 0 and np.amax(candidate) < bounds:
-                candidates.add(tuple(candidate))
-
-    print(sorted(candidates))
-
-    for candidate in tqdm(candidates):
-        inside = False
-        for sensor, beacon in data:
-            radius = cityblock(sensor, beacon)
-
-            if cityblock(sensor, candidate) <= radius:
-                inside = True
-                break
-
-        if not inside:
-            print(candidate)
-            print(candidate[1] * 4000000 + candidate[0])
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Solves AOC 2022 day 15')
