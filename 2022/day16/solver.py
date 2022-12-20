@@ -2,8 +2,10 @@ import argparse
 import re
 import numpy as np
 
-from copy import deepcopy
-from typing import Any, Dict
+from copy import copy, deepcopy
+from itertools import combinations
+from typing import Any, Dict, List, Set
+from tqdm import tqdm
 
 
 def parse(line: str):
@@ -81,6 +83,10 @@ def compute_edges(nodes: Dict[str, Any]):
 
     return keys, edges
 
+def score(opened: np.ndarray, rates: List[int]):
+    return np.sum([opened[i] * rates[i] \
+                   for i in range(len(opened)) if opened[i] > 0])
+
 def solve(input: str):
     with open(input, 'r') as f:
         lines = [line.strip() for line in f.readlines()]
@@ -90,42 +96,50 @@ def solve(input: str):
     nodes = prune(nodes)
 
     keys, edges = compute_edges(nodes)
+    rates = [nodes[key]['rate'] for key in keys]
+    edges += 1 - np.eye(len(keys))
 
-    start = {
-        'node': 'AA',
-        'days': 0,
-        'path': 'AA',
-        'opened': np.zeros(len(keys)),
-    }
+    def recurse(name: str, days: int, opened: np.ndarray, limit: int,
+                allowed: Set, largest: int = 0):
+        idx = keys.index(name)
 
-    def serialize(state):
-        return state['node'] + ''.join(state(['opened'])) + str(state['days'])
+        opened = copy(opened)
+        opened[idx] = limit - days
 
-    queue = []
-    queue.append(start)
-    seen = {}
+        mock = copy(opened)
+        mock[mock == 0] = limit - days
+        potential = score(mock, rates)
 
-    while len(queue) > 0:
-        current = queue.pop()
-        print(current)
+        if largest > 0 and potential <= largest:
+            return largest
 
-        if current['days'] >= 3:
-            continue
+        finished = [opened[i] for i in range(len(opened))\
+                    if keys[i] in allowed]
 
-        idx = keys.index(current['node'])
+        if days >= limit or np.all(np.asarray(finished) > 0):
+            return score(opened, rates)
 
-        for i in range(len(edges[idx])):
-            if i == idx:
-                continue
+        scores = []
 
-            queue.append({
-                'node': keys[i],
-                'days': current['days'] + 1 + edges[idx, i],
-                'path': current['path'] + '->' + keys[i]
-            })
+        for j in range(len(keys)):
+            if idx != j and opened[j] == 0 and keys[j] in allowed:
+                if len(scores) > 0 and scores[-1] > largest:
+                    largest = scores[-1]
+                scores.append(recurse(keys[j], days + edges[idx, j], opened,
+                                      limit, allowed, largest))
 
+        max_score = np.amax(scores)
 
+        return max_score
 
+    max_score = recurse('AA', 0, np.zeros(len(keys)), 30, set(keys))
+    print(f'Max score: {max_score}')
+    subsets = list(combinations(keys, len(keys) // 2))
+    scores = [recurse('AA', 0, np.zeros(len(keys)), 26, subsets[i]) + \
+              recurse('AA', 0, np.zeros(len(keys)), 26,
+                      set([key for key in keys if key not in subsets[i]])) \
+             for i in tqdm(range(len(subsets)))]
+    print(f'Max in combination: {np.amax(scores)}')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Solves AOC 2022 day 16')
