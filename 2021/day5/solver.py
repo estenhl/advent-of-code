@@ -33,7 +33,6 @@ def plot(map: np.ndarray, entries: List[Tuple[Tuple[int]]],
 
         map[idx] += 1
 
-
     return map
 
 def solve(input: str):
